@@ -4,8 +4,8 @@
 
 label start:
     
-    call variables
     call functions
+    call variables
 
     scene bg room
 
@@ -136,34 +136,29 @@ label functions:
 
         import random
 
+        ######################################################################################
+        # Class realization
+        ######################################################################################
+
+
         class ItemStat:
-    
+
             def __init__(self, name: str, value: int):
-                # if items_data.name == name:
                 self.name = name
                 self.value = value
-                # else:
-                #     return "There's no such attribute!"
 
 
         class Item:
 
-            def __init__(self, name: str, description: str = "", value: int = 1):
+            def __init__(self, name: str, description: str, value: int):
                 self.name = name
                 self.description = description
                 self.value = value
 
-            def __str__(self):
-                if hasattr(self, "amount"):
-                    return f"{self.name} ({self.description}) value: {self.value}, amount: {self.amount}"
-                if hasattr(self, "stat"):
-                    return f"{self.name} ({self.description}) value: {self.value}, stat: {self.stat.value} {self.stat.name}"
-                return f"{self.name} ({self.description}) value: {self.value}"
-
 
         class StackableItem(Item):
 
-            def __init__(self, name: str, amount: int, value: int, description: str) :
+            def __init__(self, name: str, description: str, value: int, amount: int = 1):
                 super().__init__(name, description, value)
                 self.amount = amount
 
@@ -180,36 +175,208 @@ label functions:
             def __init__(self, name: str, description: str, value: int, stat: ItemStat):
                 super().__init__(name, description, value)
                 self.stat = stat
-                self.unique = True
-        
-        class Inventory(object):
+
+
+        class Inventory:
 
             def __init__(self):
                 self.items = []
-                # self.gold = 0
+                self.has_unique_item = False
 
-            def add_item(self, item: Item):
-                if isinstance(item, UniqueItem) and item.unique and any(
-                    hasattr(object, "unique") and object.unique
-                    for object in inventory.items):
-                    return True
-                if isinstance(item, StackableItem) and any(obj.name == item.name
-                                                        for obj in self.items):
-                    added_item = self.get_item(item.name)
-                    added_item.amount += item.amount
-                    return True
-                self.items.append(item)
+            def add_item(self, item: Item, amount: int = 1):
+                if isinstance(item, UniqueItem):
+                    if not self.has_unique_item:
+                        self.has_unique_item = True
+                        self.items.append(item)
+                    else:
+                        return "You can't have more than one unique item"
+                elif isinstance(item, StackableItem):
+                    existing_item = next((i for i in self.items if i == item), None)
+                    if existing_item:
+                        existing_item.amount += amount
+                    else:
+                        item.amount = amount
+                        self.items.append(item)
+                else:
+                    self.items.extend([item] * amount)
 
-            def remove_item(self, item: Item):
-                self.items.remove(item)
+            def remove_item(self, item: Item, amount: int = 1):
+                if isinstance(item, UniqueItem) and self.has_unique_item:
+                    self.has_unique_item = False
+                    self.items.remove(item)
+                elif isinstance(item, StackableItem) and item in self.items:
+                    item.amount -= amount
+                    if item.amount <= 0:
+                        self.items.remove(item)
+                else:
+                    for num in range(0, amount):
+                        if item in self.items:
+                            self.items.remove(item)
 
-            def get_item(self, item_name: str):
-                for item in self.items:
-                    if item.name == item_name:
-                        return item
+            def get_item(self, item: Item):
+                if item in self.items:
+                    return self.items[self.items.index(item)]
+                else:
+                    return None
 
-            def contains(self):
-                result = "Пусто" if not self.items else ""
-                for item in self.items:
-                    result += (str(item) + "\n")
-                return result
+            def get_all_items(self):
+                return self.items
+
+            def sort_items(self, sort_by: str, reverse: bool = False):
+                key_functions = {
+                    "name": lambda x: x.name,
+                    "value": lambda x: x.value,
+                    "stat": lambda x: x.stat.value,
+                    "type": lambda x: x.__class__.__name__
+                }
+
+                if sort_by in key_functions:
+                    self.items.sort(key=key_functions[sort_by], reverse=reverse)
+                
+                return self.items
+
+        ####
+        # Bonus:
+        ####
+
+        ######################################################################################
+        # Dict realization
+        ######################################################################################
+
+
+        class InventoryDict:
+
+            def __init__(self):
+                self.items = []
+                self.has_unique_item = False
+
+            def add_item(self, item: dict, amount: int = 1):
+                if item.get('unique'):
+                    if not self.has_unique_item:
+                        self.has_unique_item = True
+                        self.items.append(item)
+                    else:
+                        print("You can't have more than one unique item")
+                elif item.get('amount'):
+                    if item not in self.items:
+                        item['amount'] = amount
+                        self.items.append(item)
+                    else:
+                        self.items[self.items.index(item)]['amount'] += amount
+                else:
+                    self.items.extend([item] * amount)
+
+            def remove_item(self, item: dict, amount: int = 1):
+                deleted_item = self.get_item(item)
+                if deleted_item:
+                    if deleted_item.get('unique'):
+                        self.has_unique_item = False
+                        self.items.remove(deleted_item)
+                    if deleted_item.get('amount'):
+                        deleted_item['amount'] -= amount
+                        if deleted_item['amount'] <= 0:
+                            self.items.remove(deleted_item)
+                    else:
+                        self.items.remove(deleted_item)
+
+            def get_item(self, item: dict):
+                item_name = item.get('name') if item else None
+                return next((i for i in self.items
+                            if i.get('name') == item_name), None) if item_name else None
+
+            def get_all_items(self):
+                return self.items
+            
+            def sort_items(self, sort_by="type", reverse=False):
+                key_functions = {
+                    "name": lambda x: x.get('name', ''),
+                    "value": lambda x: x.get('value', 0),
+                    "stat": lambda x: x.get('stat', {}).get('value', 0),
+                    "type": lambda x: (1 if 'unique' in x else 0, 2 if 'stat' in x else 0, 3 if 'amount' in x else 0)
+                }
+
+                if sort_by in key_functions:
+                    self.items.sort(key=key_functions[sort_by], reverse=reverse)
+
+                return self.items
+
+
+        # Oldy:
+        #
+        # class ItemStat:
+    
+        #     def __init__(self, name: str, value: int):
+        #         # if items_data.name == name:
+        #         self.name = name
+        #         self.value = value
+        #         # else:
+        #         #     return "There's no such attribute!"
+
+
+        # class Item:
+
+        #     def __init__(self, name: str, description: str = "", value: int = 1):
+        #         self.name = name
+        #         self.description = description
+        #         self.value = value
+
+        #     def __str__(self):
+        #         if hasattr(self, "amount"):
+        #             return f"{self.name} ({self.description}) value: {self.value}, amount: {self.amount}"
+        #         if hasattr(self, "stat"):
+        #             return f"{self.name} ({self.description}) value: {self.value}, stat: {self.stat.value} {self.stat.name}"
+        #         return f"{self.name} ({self.description}) value: {self.value}"
+
+
+        # class StackableItem(Item):
+
+        #     def __init__(self, name: str, amount: int, value: int, description: str) :
+        #         super().__init__(name, description, value)
+        #         self.amount = amount
+
+
+        # class StatItem(Item):
+
+        #     def __init__(self, name: str, description: str, value: int, stat: ItemStat):
+        #         super().__init__(name, description, value)
+        #         self.stat = stat
+
+
+        # class UniqueItem(Item):
+
+        #     def __init__(self, name: str, description: str, value: int, stat: ItemStat):
+        #         super().__init__(name, description, value)
+        #         self.stat = stat
+        #         self.unique = True
+        
+        # class Inventory(object):
+
+        #     def __init__(self):
+        #         self.items = []
+        #         # self.gold = 0
+
+        #     def add_item(self, item: Item):
+        #         if isinstance(item, UniqueItem) and item.unique and any(
+        #             hasattr(object, "unique") and object.unique
+        #             for object in inventory.items):
+        #             return True
+        #         if isinstance(item, StackableItem) and any(obj.name == item.name
+        #                                                 for obj in self.items):
+        #             added_item = self.get_item(item.name)
+        #             added_item.amount += item.amount
+        #             return True
+        #         self.items.append(item)
+
+        #     def remove_item(self, item: Item):
+        #         self.items.remove(item)
+
+        #     def get_item(self, item_name: str):
+        #         for item in self.items:
+        #             if item.name == item_name:
+        #                 return item
+
+        #     def contains(self):
+        #         result = "Пусто" if not self.items else ""
+        #         for item in self.items:
+        #             result += (str(item) + "\n")
+        #         return result
