@@ -11,116 +11,131 @@ label start:
 
     show vasya 
 
-    $ taken_item = transformed_data
-
     v "Ну здарова"
-    
     v "Не узнал меня?"
 
     label inventory_loop:
-        # $ inventory_contains = inventory.get_all_items()
+
         python:
             inventory_contains = inventory.get_all_items()
+
             inventory_string = ""
-            iter = 0
-            for item in inventory_contains:
-                iter += 1
+            for i, item in enumerate(inventory_contains, start=1):
                 if isinstance(item, StackableItem):
-                    inventory_string += str(item.amount) + " " + str(item.name)
-                if isinstance(item, StatItem):
-                    for stat in item.stat:
-                        inventory_string += "+" if stat.value > 0 else ""
-                        inventory_string += str(stat.value) + " " + str(stat.name) + " "
-                    inventory_string += str(item.name)
-                else:
-                    pass
-                if len(inventory_contains) > 1 and iter < len(inventory_contains):
+                    inventory_string += f"[{item.amount} {item.name}]"
+                elif isinstance(item, StatItem) or isinstance(item, UniqueItem):
+                    stats_string = "".join([f"+{stat.value} {stat.name}" if stat.value > 0 else f"{stat.value} {stat.name}" for stat in item.stat])
+                    inventory_string += f"[{stats_string} {item.name}]"
+                if i < len(inventory_contains):
                     inventory_string += ", "
-        "У меня в инвентаре: \n[inventory_string]"
+        
+        "У меня в инвентаре:\n[inventory_string]"
 
     menu:
-    
+
         "Взять исчислимый предмет в количестве от 1 до 10 штук (число и предмет случайны)":
+            
             $ random_number = renpy.random.randint(1, 10)
-            # $ suffix = get_suffix(random_number)
             $ taken_item = get_random_item("stackable_items")
-            v "Я тебе дам... [random_number] [taken_item.name]"
+
+            v "Я тебе отдам... [random_number] [taken_item.name]"
+            
             $ inventory.add_item(taken_item, random_number)
-            "%(random_number)d [taken_item.name] добавлено в инвентарь!"
+
+            "[random_number] [taken_item.name] добавлено в инвентарь!"
+            
             jump inventory_loop
+
         "Взять новый случайный одиночный предмет со случайными статами":
+            
             $ taken_item = get_random_item_with_random_stats()
             $ inventory.add_item(taken_item)
-            python:
-                string = "Вы взяли [taken_item.name] c характеристиками "
-                for stat in taken_item.stat:
-                        string += "+" if stat.value > 0 else ""
-                        string += str(stat.value) + " " + str(stat.name) + " "
-            "%(string)s!"
+            $ string = f"Вы взяли |{taken_item.name}| c характеристиками "
+            $ string += "".join([f"+{stat.value} {stat.name}" if stat.value > 0 else f"{stat.value} {stat.name}" for stat in taken_item.stat])
+            
+            "[string]!"
             jump inventory_loop
+
         "Взять случайный уникальный предмет":
-            $ taken_item = get_random_item_with_random_stats("unique_items")
-            $ is_unique_in_inventory = inventory.has_unique_item
-            if is_unique_in_inventory:
+
+            if inventory.has_unique_item:
                 $ string = "У вас уже есть уникальный предмет в инвентаре"
             else:
+                $ taken_item = get_random_item_with_random_stats("unique_items")
                 $ inventory.add_item(taken_item)
                 python:
-                    string = "Вы взяли [taken_item.name] c характеристиками "
+                    string = f"Вы взяли *{taken_item.name}* c характеристиками "
                     for stat in taken_item.stat:
-                            string += "+" if stat.value > 0 else ""
-                            string += str(stat.value) + " " + str(stat.name) + " "
-            "%(string)s!"
+                        string += f"{'+' if stat.value > 0 else ''}{stat.value} {stat.name} "
+            
+            "[string]!"
             jump inventory_loop
+
         "Отдать исчислимый предмет в количестве от 1 до 10 штук (случайно)":
+
             $ random_number = renpy.random.randint(1, 10)
             $ random_item = inventory.get_random_item("stackable_items")
-            "Ну-ка..."
+
+            v "Ну-ка..."
+
             python:
                 string = ""
-                if random_item != None:
+                if random_item:
                     if random_item.amount < random_number:
                         random_number = random_item.amount
                     inventory.remove_item(random_item, random_number)
-                    string = "Опс! [random_number] [random_item.name] отдали! Так и быть!"
+                    string = f"Опс! {random_number} {random_item.name} отдали! Так и быть!"
                 else:
                     string = "А у тебя ничего такого и нету! Растяпа..."
-            v "%(string)s"
+
+            v "[string]"
             jump inventory_loop
+
         "Отдать одиночный предмет (один из)":
+
             $ random_item = inventory.get_random_item("stat_items")
-            "Оп..."
+            
+            v "Оп..."
+            
             python:
                 string = ""
-                if random_item != None:
-                    inventory.remove_item(random_item, random_number)
-                    string = "Хоба! Был [random_item.name] с "
+                if random_item:
+                    inventory.remove_item(random_item)
+                    string = f"Хоба! Был |{random_item.name}| с "
                     for stat in random_item.stat:
-                        string += "+" if stat.value > 0 else ""
-                        string += str(stat.value) + " " + str(stat.name) + " "
+                        string += f"{'+' if stat.value > 0 else ''}{stat.value} {stat.name} "
                     string += "а больше-то и нету! Вот так вот!"
                 else:
                     string = "А у тебя ничего такого и нету! Растяпа..."
-            v "%(string)s"
+            
+            v "[string]"
             jump inventory_loop
+
         "Отдать уникальный предмет":
+
             $ random_item = inventory.get_random_item("unique_items")
-            "Хммм..."
+            
+            v "Хммм..."
+            
             python:
                 string = ""
                 if random_item != None:
                     inventory.remove_item(random_item, random_number)
-                    string = "Опаньки! Был [random_item.name] с "
+                    string = f"Опаньки! Был *{random_item.name}* с "
                     for stat in random_item.stat:
-                        string += "+" if stat.value > 0 else ""
-                        string += str(stat.value) + " " + str(stat.name) + " "
+                        string += f"{'+' if stat.value > 0 else ''}{stat.value} {stat.name} "
                     string += "а больше-то его и нету! Хорошая вещь была, конечно..."
                 else:
                     string = "А у тебя ничего такого и нету! Растяпа..."
+            
             v "%(string)s"
             jump inventory_loop
-    return
 
+        "Выйти":
+
+            return
+        
+    return
 
 
 label variables:
@@ -202,11 +217,10 @@ label variables:
     }
     $ transformed_data = transform_items_data(items_data)
 
+
 label functions:
 
     init python:
-        
-        # import inventory_systems
 
         ######
         # Inventory functions
@@ -264,12 +278,20 @@ label functions:
                 return StatItem(self.name, self.description, self.value, self.stat)
 
 
-        class UniqueItem(StatItem):
+        class UniqueItem(Item):
 
             def __init__(self, name: str, description: str, value: int, stat: ItemStat or list[ItemStat]):
-                super().__init__(
-                    name, description, value, stat if isinstance(stat, list) else
-                    [stat] if isinstance(stat, ItemStat) else [])
+                super().__init__(name, description, value)
+                self.stat = stat if isinstance(
+                    stat, list) else [stat] if isinstance(stat, ItemStat) else []
+
+            def add_stat(self, stat: ItemStat):
+                self.stat[
+                    stat.
+                    name].value += stat.value if stat.name in self.stat else stat.value
+
+            def remove_stat(self, stat: ItemStat):
+                self.stat.pop(stat.name, None)
             
             def copy(self):
                 return UniqueItem(self.name, self.description, self.value, self.stat)
@@ -353,69 +375,6 @@ label functions:
 
         ########
         # Let's assume our items data is packed in dictionary
-        ########
-        
-        # items_data = {
-        #     "stackable_items": {
-        #         "Stone": {
-        #             "name": "Stone",
-        #             "description": "Just a stone",
-        #             "value": 1
-        #         },
-        #         "Branch": {
-        #             "name": "Branch",
-        #             "description": "A branch",
-        #             "value": 5
-        #         },
-        #         "Arrow": {
-        #             "name": "Arrow",
-        #             "description": "A handy arrow",
-        #             "value": 15
-        #         }
-        #     },
-        #     "stat_items": {
-        #         "Sword": {
-        #             "name": "Sword",
-        #             "description": "Solid straight sword",
-        #             "value": 10,
-        #             "stat": ItemStat("Strength", 5)
-        #         },
-        #         "Staff": {
-        #             "name": "Staff",
-        #             "description": "Staff which handy for a wizards, Harry",
-        #             "value": 10,
-        #             "stat": ItemStat("Intelligence", 5)
-        #         },
-        #         "Bow": {
-        #             "name": "Bow",
-        #             "description": "Bow",
-        #             "value": 10,
-        #             "stat": ItemStat("Agility", 5)
-        #         }
-        #     },
-        #     "unique_items": {
-        #         "Varezhka": {
-        #             "name": "Varezhka",
-        #             "description": "A powerful mitten",
-        #             "value": 100,
-        #             "stat": ItemStat("Strength", 10)
-        #         },
-        #         "Samovar": {
-        #             "name": "Samovar",
-        #             "description": "Fabulous teapot with ornaments",
-        #             "value": 200,
-        #             "stat": ItemStat("Intelligence", 20)
-        #         },
-        #         "Matryoshka": {
-        #             "name": "Nested dolls that somehow make you thinner",
-        #             "description": "",
-        #             "value": 250,
-        #             "stat": ItemStat("Agility", 25)
-        #         }
-        #     }
-        # }
-
-        ########
         # We need to transform it to our Item class
         ########
 
@@ -491,8 +450,6 @@ label functions:
                 stats = get_random_stats()
                 item.stat = stats
                 return item
-        
-        # transformed_data = transform_items_data(items_data)
 
         ####
         # Bonus:
@@ -559,83 +516,3 @@ label functions:
 
                 return self.items
 
-
-        # Oldy:
-        
-        # class ItemStat:
-    
-        #     def __init__(self, name: str, value: int):
-        #         # if items_data.name == name:
-        #         self.name = name
-        #         self.value = value
-        #         # else:
-        #         #     return "There's no such attribute!"
-
-
-        # class Item:
-
-        #     def __init__(self, name: str, description: str = "", value: int = 1):
-        #         self.name = name
-        #         self.description = description
-        #         self.value = value
-
-        #     def __str__(self):
-        #         if hasattr(self, "amount"):
-        #             return f"{self.name} ({self.description}) value: {self.value}, amount: {self.amount}"
-        #         if hasattr(self, "stat"):
-        #             return f"{self.name} ({self.description}) value: {self.value}, stat: {self.stat.value} {self.stat.name}"
-        #         return f"{self.name} ({self.description}) value: {self.value}"
-
-
-        # class StackableItem(Item):
-
-        #     def __init__(self, name: str, amount: int, value: int, description: str) :
-        #         super().__init__(name, description, value)
-        #         self.amount = amount
-
-
-        # class StatItem(Item):
-
-        #     def __init__(self, name: str, description: str, value: int, stat: ItemStat):
-        #         super().__init__(name, description, value)
-        #         self.stat = stat
-
-
-        # class UniqueItem(Item):
-
-        #     def __init__(self, name: str, description: str, value: int, stat: ItemStat):
-        #         super().__init__(name, description, value)
-        #         self.stat = stat
-        #         self.unique = True
-        
-        # class Inventory(object):
-
-        #     def __init__(self):
-        #         self.items = []
-        #         # self.gold = 0
-
-        #     def add_item(self, item: Item):
-        #         if isinstance(item, UniqueItem) and item.unique and any(
-        #             hasattr(object, "unique") and object.unique
-        #             for object in inventory.items):
-        #             return True
-        #         if isinstance(item, StackableItem) and any(obj.name == item.name
-        #                                                 for obj in self.items):
-        #             added_item = self.get_item(item.name)
-        #             added_item.amount += item.amount
-        #             return True
-        #         self.items.append(item)
-
-        #     def remove_item(self, item: Item):
-        #         self.items.remove(item)
-
-        #     def get_item(self, item_name: str):
-        #         for item in self.items:
-        #             if item.name == item_name:
-        #                 return item
-
-        #     def contains(self):
-        #         result = "Пусто" if not self.items else ""
-        #         for item in self.items:
-        #             result += (str(item) + "\n")
-        #         return result
