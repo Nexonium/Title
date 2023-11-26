@@ -16,16 +16,23 @@ label start:
     v "Не узнал меня?"
 
     label inventory_loop:
-        $ inventory_string = inventory.contains()
+        $ inventory_string = inventory.get_all_items()
         "У меня в инвентаре: \n[inventory_string]"
 
     menu:
     
         "Взять исчислимый предмет в количестве от 1 до 10 штук (число и предмет случайны)":
-            $ random_amount = random.randrange(1, 10)
-            $ taken_item = StackableItem("Stone", random_number, 1, "Just a stone")
-            $ inventory.add_item(taken_item)
-            "%(random_number)d предме[lexicon_ending] добавлено в инвентарь!"
+            $ random_number = renpy.random.randint(1, 10)
+            $ lexicon = lexicon_ending(random_number)
+            # $ sorted = get_sorted_items(items_data)
+            # $ shuffled = get_random_shuffled(sorted)
+            # $ random_item = get_random_item_from_list(shuffled)
+            $ taken_item = get_random_item("stackable_items").copy()
+            $ taken_item2 = get_random_item("stackable_items")
+            $ taken_item3 = get_random_item("stackable_items")
+            "А сейчас я тебе дам... [taken_item.name]"
+            $ inventory.add_item(taken_item, random_number)
+            "%(random_number)d предме[lexicon] добавлено в инвентарь!"
             jump inventory_loop
         "Взять новый случайный одиночный предмет со случайными статами":
             $ taken_item = StatItem("Sword", "Solid straight sword", 10, ItemStat("Strenght", 5))
@@ -50,8 +57,8 @@ label start:
 label variables:
     $ v = Character("Vasya")
     $ inventory = Inventory()
-    $ random_number = random.randrange(1, 10)
-    $ lexicon_ending = "т" if random_number == 1 else "та" if random_number < 5 else "тов"
+    $ renpy.store.random_number = renpy.random.randint(1, 10)
+    $ items_data = renpy.store.dict()
     $ items_data = {
         "stackable_items": {
             "Stone": {
@@ -125,6 +132,8 @@ label variables:
             "name": "Luck"
         }
     }
+    $ transformed_data = renpy.store.dict()
+    $ transformed_data = transform_items_data(items_data)
 
 label functions:
 
@@ -161,6 +170,9 @@ label functions:
             def __init__(self, name: str, description: str, value: int, amount: int = 1):
                 super().__init__(name, description, value)
                 self.amount = amount
+            
+            def copy(self):
+                return StackableItem(self.name, self.description, self.value, self.amount)
 
 
         class StatItem(Item):
@@ -191,7 +203,7 @@ label functions:
                     else:
                         return "You can't have more than one unique item"
                 elif isinstance(item, StackableItem):
-                    existing_item = next((i for i in self.items if i == item), None)
+                    existing_item = next((i for i in self.items if i.name == item.name), None)
                     if existing_item:
                         existing_item.amount += amount
                     else:
@@ -219,7 +231,7 @@ label functions:
                 else:
                     return None
 
-            def get_all_items(self):
+            def get_all_items(self)->list:
                 return self.items
 
             def sort_items(self, sort_by: str, reverse: bool = False):
@@ -234,6 +246,78 @@ label functions:
                     self.items.sort(key=key_functions[sort_by], reverse=reverse)
                 
                 return self.items
+        
+
+        ########
+        # Let's assume our items data is packed in dictionary
+        # We need to transform it to our Item class
+        ########
+
+        def transform_items_data(items_data):
+            stackable_items = {}
+            stat_items = {}
+            unique_items = {}
+            for item_type in items_data:
+                for item_name in items_data[item_type]:
+                    item_data = items_data[item_type][item_name]
+                if item_type == "stackable_items":
+                    stackable_items[item_name] = StackableItem(item_name,
+                                                            item_data["description"],
+                                                            item_data["value"])
+                    continue
+                if item_type == "stat_items":
+                    stat_data = item_data["stat"]
+                    stat_items[item_name] = StatItem(
+                        item_name, item_data["description"], item_data["value"],
+                        ItemStat(stat_data.name, stat_data.value))
+                    continue
+                if item_type == "unique_items":
+                    stat_data = item_data["stat"]
+                    unique_items[item_name] = UniqueItem(
+                        item_name, item_data["description"], item_data["value"],
+                        ItemStat(stat_data.name, stat_data.value))
+                    continue
+            return {
+                "stackable_items": stackable_items,
+                "stat_items": stat_items,
+                "unique_items": unique_items
+            }
+
+        def get_transfromed_data_by_name(name):
+            if name in transformed_data["stackable_items"]:
+                return transformed_data["stackable_items"][name]
+            if name in transformed_data["stat_items"]:
+                return transformed_data["stat_items"][name]
+            if name in transformed_data["unique_items"]:
+                return transformed_data["unique_items"][name]
+            return None
+
+        def get_random_item(item_type: str):
+            items = transformed_data.get(item_type).copy()
+            sorted_items = list(items.values())
+            random_shuffle(sorted_items)
+            random_item = random.choice(sorted_items)
+            return random_item
+
+        def get_sorted_items(item_type:list):
+            items = transformed_data.get(item_type).copy()
+            sorted_items = list(items.values())
+            return sorted_items
+
+        def get_random_shuffled(item_list:list):
+            random_list = item_list.copy()
+            random_shuffle(random_list)
+            return random_list
+
+        def get_random_item_from_list(item_list:list):
+            return random.choice(item_list)
+
+        def random_shuffle(variable: list):
+            renpy.random.shuffle(variable)
+            return variable
+
+        def lexicon_ending(number: int):
+            return "т" if random_number == 1 else "та" if random_number < 5 else "тов"
 
         ####
         # Bonus:
