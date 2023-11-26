@@ -24,7 +24,7 @@ label start:
                 if isinstance(item, StackableItem):
                     inventory_string += f"[{item.amount} {item.name}]"
                 elif isinstance(item, StatItem) or isinstance(item, UniqueItem):
-                    stats_string = "".join([f"+{stat.value} {stat.name}" if stat.value > 0 else f"{stat.value} {stat.name}" for stat in item.stat])
+                    stats_string = "".join([f"+{stat.value} {stat.name} " if stat.value > 0 else f"{stat.value} {stat.name} " for stat in item.stat])
                     inventory_string += f"[{stats_string} {item.name}]"
                 if i < len(inventory_contains):
                     inventory_string += ", "
@@ -134,7 +134,7 @@ label start:
         "Выйти":
 
             return
-        
+
     return
 
 
@@ -255,7 +255,7 @@ label functions:
                 super().__init__(name, description, value)
                 self.amount = amount
             
-            def copy(self):
+            def copy(self)->StackableItem:
                 return StackableItem(self.name, self.description, self.value, self.amount)
 
 
@@ -274,7 +274,7 @@ label functions:
             def remove_stat(self, stat: ItemStat):
                 self.stat.pop(stat.name, None)
             
-            def copy(self):
+            def copy(self)->StatItem:
                 return StatItem(self.name, self.description, self.value, self.stat)
 
 
@@ -293,7 +293,7 @@ label functions:
             def remove_stat(self, stat: ItemStat):
                 self.stat.pop(stat.name, None)
             
-            def copy(self):
+            def copy(self)->UniqueItem:
                 return UniqueItem(self.name, self.description, self.value, self.stat)
 
 
@@ -333,7 +333,7 @@ label functions:
                         if item in self.items:
                             self.items.remove(item)
 
-            def get_item(self, item: Item):
+            def get_item(self, item: Item)->Item or None:
                 if item.name in self.items:
                     return self.items[self.items.index(item)]
                 else:
@@ -342,14 +342,14 @@ label functions:
             def get_all_items(self)->list:
                 return self.items
             
-            def get_random_item(self, item_type: str):
+            def get_random_item(self, item_type: str)->StackableItem or StatItem or UniqueItem or None:
                 items_of_type = [item for item in self.items if isinstance(item, self.get_item_class(item_type))]
                 if items_of_type:
                     return random.choice(items_of_type)
                 else:
                     return None
 
-            def get_item_class(self, item_type: str):
+            def get_item_class(self, item_type: str)->StackableItem or StatItem or UniqueItem or None:
                 if item_type == "stackable_items":
                     return StackableItem
                 elif item_type == "stat_items":
@@ -359,7 +359,7 @@ label functions:
                 else:
                     return None
 
-            def sort_items(self, sort_by: str, reverse: bool = False):
+            def sort_items(self, sort_by: str, reverse: bool = False)->list(Item):
                 key_functions = {
                     "name": lambda x: x.name,
                     "value": lambda x: x.value,
@@ -378,7 +378,7 @@ label functions:
         # We need to transform it to our Item class
         ########
 
-        def transform_items_data(items_data):
+        def transform_items_data(items_data)->dict:
             stackable_items = {}
             stat_items = {}
             unique_items = {}
@@ -408,7 +408,7 @@ label functions:
                 "unique_items": unique_items
             }
 
-        def get_transfromed_data_by_name(name):
+        def get_transfromed_data_by_name(name)->StackableItem or StatItem or UniqueItem or None:
             if name in transformed_data["stackable_items"]:
                 return transformed_data["stackable_items"][name]
             if name in transformed_data["stat_items"]:
@@ -417,7 +417,7 @@ label functions:
                 return transformed_data["unique_items"][name]
             return None
 
-        def get_random_item(item_type: str)->obj:
+        def get_random_item(item_type: str)->StackableItem or StatItem or UniqueItem or None:
             items = transformed_data.get(item_type).copy()
             sorted_items = list(items.values())
             random_shuffle(sorted_items)
@@ -431,7 +431,7 @@ label functions:
         def get_suffix(number: int)->str:
             return "а" if random_number < 5 and random_number > 1 else "ов"
 
-        def get_random_stats(number_of_stats: int = random.randint(1, 2)):
+        def get_random_stats(number_of_stats: int = random.randint(1, 2))->ItemStat or list(ItemStat):
             stat = set()
             while len(stat) < number_of_stats:
                 stat_name = random.choice(list(items_stat_data.keys()))
@@ -442,7 +442,7 @@ label functions:
 
             return list(stat)
 
-        def get_random_item_with_random_stats(item_type: str = "stat_items"):
+        def get_random_item_with_random_stats(item_type: str = "stat_items")->StackableItem or StatItem or UniqueItem:
             if item_type == "stackable_items":
                 return get_random_item(item_type)
             else:
@@ -472,7 +472,7 @@ label functions:
                         self.has_unique_item = True
                         self.items.append(item)
                     else:
-                        print("You can't have more than one unique item")
+                        return "You already have unique item!"
                 elif item.get('amount'):
                     if item not in self.items:
                         item['amount'] = amount
@@ -495,15 +495,15 @@ label functions:
                     else:
                         self.items.remove(deleted_item)
 
-            def get_item(self, item: dict):
+            def get_item(self, item: dict)->dict:
                 item_name = item.get('name') if item else None
                 return next((i for i in self.items
                             if i.get('name') == item_name), None) if item_name else None
 
-            def get_all_items(self):
+            def get_all_items(self)->list(dict):
                 return self.items
             
-            def sort_items(self, sort_by="type", reverse=False):
+            def sort_items(self, sort_by="type", reverse=False)->list(dict):
                 key_functions = {
                     "name": lambda x: x.get('name', ''),
                     "value": lambda x: x.get('value', 0),
