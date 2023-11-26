@@ -11,45 +11,114 @@ label start:
 
     show vasya 
 
+    $ taken_item = transformed_data
+
     v "Ну здарова"
     
     v "Не узнал меня?"
 
     label inventory_loop:
-        $ inventory_string = inventory.get_all_items()
+        # $ inventory_contains = inventory.get_all_items()
+        python:
+            inventory_contains = inventory.get_all_items()
+            inventory_string = ""
+            iter = 0
+            for item in inventory_contains:
+                iter += 1
+                if isinstance(item, StackableItem):
+                    inventory_string += str(item.amount) + " " + str(item.name)
+                if isinstance(item, StatItem):
+                    for stat in item.stat:
+                        inventory_string += "+" if stat.value > 0 else ""
+                        inventory_string += str(stat.value) + " " + str(stat.name) + " "
+                    inventory_string += str(item.name)
+                else:
+                    pass
+                if len(inventory_contains) > 1 and iter < len(inventory_contains):
+                    inventory_string += ", "
         "У меня в инвентаре: \n[inventory_string]"
 
     menu:
     
         "Взять исчислимый предмет в количестве от 1 до 10 штук (число и предмет случайны)":
             $ random_number = renpy.random.randint(1, 10)
-            $ lexicon = lexicon_ending(random_number)
-            # $ sorted = get_sorted_items(items_data)
-            # $ shuffled = get_random_shuffled(sorted)
-            # $ random_item = get_random_item_from_list(shuffled)
-            $ taken_item = get_random_item("stackable_items").copy()
-            $ taken_item2 = get_random_item("stackable_items")
-            $ taken_item3 = get_random_item("stackable_items")
-            "А сейчас я тебе дам... [taken_item.name]"
+            # $ suffix = get_suffix(random_number)
+            $ taken_item = get_random_item("stackable_items")
+            v "Я тебе дам... [random_number] [taken_item.name]"
             $ inventory.add_item(taken_item, random_number)
-            "%(random_number)d предме[lexicon] добавлено в инвентарь!"
+            "%(random_number)d [taken_item.name] добавлено в инвентарь!"
             jump inventory_loop
         "Взять новый случайный одиночный предмет со случайными статами":
-            $ taken_item = StatItem("Sword", "Solid straight sword", 10, ItemStat("Strenght", 5))
+            $ taken_item = get_random_item_with_random_stats()
             $ inventory.add_item(taken_item)
-            "Вы взяли [taken_item.name] с характеристиками [taken_item.stat.value] [taken_item.stat.name] и стоимостью [taken_item.value]"
+            python:
+                string = "Вы взяли [taken_item.name] c характеристиками "
+                for stat in taken_item.stat:
+                        string += "+" if stat.value > 0 else ""
+                        string += str(stat.value) + " " + str(stat.name) + " "
+            "%(string)s!"
             jump inventory_loop
         "Взять случайный уникальный предмет":
-            $ taken_item = UniqueItem("Varezhka", "A powerful mitten", 100, ItemStat("Strenght", 10))
-            $ is_unique_in_inventory = inventory.add_item(taken_item)
+            $ taken_item = get_random_item_with_random_stats("unique_items")
+            $ is_unique_in_inventory = inventory.has_unique_item
             if is_unique_in_inventory:
-                "У вас уже есть уникальный предмет в инвентаре!"
+                $ string = "У вас уже есть уникальный предмет в инвентаре"
             else:
-                "Вы взяли уникальный предмет [taken_item.name] с характеристиками [taken_item.stat.value] [taken_item.stat.name] и стоимостью [taken_item.value]"
+                $ inventory.add_item(taken_item)
+                python:
+                    string = "Вы взяли [taken_item.name] c характеристиками "
+                    for stat in taken_item.stat:
+                            string += "+" if stat.value > 0 else ""
+                            string += str(stat.value) + " " + str(stat.name) + " "
+            "%(string)s!"
             jump inventory_loop
         "Отдать исчислимый предмет в количестве от 1 до 10 штук (случайно)":
-            $ random_amount = random.randrange(1, 10)
-            
+            $ random_number = renpy.random.randint(1, 10)
+            $ random_item = inventory.get_random_item("stackable_items")
+            "Ну-ка..."
+            python:
+                string = ""
+                if random_item != None:
+                    if random_item.amount < random_number:
+                        random_number = random_item.amount
+                    inventory.remove_item(random_item, random_number)
+                    string = "Опс! [random_number] [random_item.name] отдали! Так и быть!"
+                else:
+                    string = "А у тебя ничего такого и нету! Растяпа..."
+            v "%(string)s"
+            jump inventory_loop
+        "Отдать одиночный предмет (один из)":
+            $ random_item = inventory.get_random_item("stat_items")
+            "Оп..."
+            python:
+                string = ""
+                if random_item != None:
+                    inventory.remove_item(random_item, random_number)
+                    string = "Хоба! Был [random_item.name] с "
+                    for stat in random_item.stat:
+                        string += "+" if stat.value > 0 else ""
+                        string += str(stat.value) + " " + str(stat.name) + " "
+                    string += "а больше-то и нету! Вот так вот!"
+                else:
+                    string = "А у тебя ничего такого и нету! Растяпа..."
+            v "%(string)s"
+            jump inventory_loop
+        "Отдать уникальный предмет":
+            $ random_item = inventory.get_random_item("unique_items")
+            "Хммм..."
+            python:
+                string = ""
+                if random_item != None:
+                    inventory.remove_item(random_item, random_number)
+                    string = "Опаньки! Был [random_item.name] с "
+                    for stat in random_item.stat:
+                        string += "+" if stat.value > 0 else ""
+                        string += str(stat.value) + " " + str(stat.name) + " "
+                    string += "а больше-то его и нету! Хорошая вещь была, конечно..."
+                else:
+                    string = "А у тебя ничего такого и нету! Растяпа..."
+            v "%(string)s"
+            jump inventory_loop
     return
 
 
@@ -57,8 +126,7 @@ label start:
 label variables:
     $ v = Character("Vasya")
     $ inventory = Inventory()
-    $ renpy.store.random_number = renpy.random.randint(1, 10)
-    $ items_data = renpy.store.dict()
+    $ random_number = renpy.random.randint(1, 10)
     $ items_data = {
         "stackable_items": {
             "Stone": {
@@ -132,22 +200,23 @@ label variables:
             "name": "Luck"
         }
     }
-    $ transformed_data = renpy.store.dict()
     $ transformed_data = transform_items_data(items_data)
 
 label functions:
 
     init python:
         
+        # import inventory_systems
+
         ######
         # Inventory functions
         ######
 
         import random
 
-        ######################################################################################
-        # Class realization
-        ######################################################################################
+        # ######################################################################################
+        # # Class realization
+        # ######################################################################################
 
 
         class ItemStat:
@@ -155,6 +224,7 @@ label functions:
             def __init__(self, name: str, value: int):
                 self.name = name
                 self.value = value
+
 
 
         class Item:
@@ -177,16 +247,32 @@ label functions:
 
         class StatItem(Item):
 
-            def __init__(self, name: str, description: str, value: int, stat: ItemStat):
+            def __init__(self, name: str, description: str, value: int, stat: ItemStat or list[ItemStat]):
                 super().__init__(name, description, value)
-                self.stat = stat
+                self.stat = stat if isinstance(
+                    stat, list) else [stat] if isinstance(stat, ItemStat) else []
+
+            def add_stat(self, stat: ItemStat):
+                self.stat[
+                    stat.
+                    name].value += stat.value if stat.name in self.stat else stat.value
+
+            def remove_stat(self, stat: ItemStat):
+                self.stat.pop(stat.name, None)
+            
+            def copy(self):
+                return StatItem(self.name, self.description, self.value, self.stat)
 
 
-        class UniqueItem(Item):
+        class UniqueItem(StatItem):
 
-            def __init__(self, name: str, description: str, value: int, stat: ItemStat):
-                super().__init__(name, description, value)
-                self.stat = stat
+            def __init__(self, name: str, description: str, value: int, stat: ItemStat or list[ItemStat]):
+                super().__init__(
+                    name, description, value, stat if isinstance(stat, list) else
+                    [stat] if isinstance(stat, ItemStat) else [])
+            
+            def copy(self):
+                return UniqueItem(self.name, self.description, self.value, self.stat)
 
 
         class Inventory:
@@ -226,13 +312,30 @@ label functions:
                             self.items.remove(item)
 
             def get_item(self, item: Item):
-                if item in self.items:
+                if item.name in self.items:
                     return self.items[self.items.index(item)]
                 else:
                     return None
 
             def get_all_items(self)->list:
                 return self.items
+            
+            def get_random_item(self, item_type: str):
+                items_of_type = [item for item in self.items if isinstance(item, self.get_item_class(item_type))]
+                if items_of_type:
+                    return random.choice(items_of_type)
+                else:
+                    return None
+
+            def get_item_class(self, item_type: str):
+                if item_type == "stackable_items":
+                    return StackableItem
+                elif item_type == "stat_items":
+                    return StatItem
+                elif item_type == "unique_items":
+                    return UniqueItem
+                else:
+                    return None
 
             def sort_items(self, sort_by: str, reverse: bool = False):
                 key_functions = {
@@ -250,6 +353,69 @@ label functions:
 
         ########
         # Let's assume our items data is packed in dictionary
+        ########
+        
+        # items_data = {
+        #     "stackable_items": {
+        #         "Stone": {
+        #             "name": "Stone",
+        #             "description": "Just a stone",
+        #             "value": 1
+        #         },
+        #         "Branch": {
+        #             "name": "Branch",
+        #             "description": "A branch",
+        #             "value": 5
+        #         },
+        #         "Arrow": {
+        #             "name": "Arrow",
+        #             "description": "A handy arrow",
+        #             "value": 15
+        #         }
+        #     },
+        #     "stat_items": {
+        #         "Sword": {
+        #             "name": "Sword",
+        #             "description": "Solid straight sword",
+        #             "value": 10,
+        #             "stat": ItemStat("Strength", 5)
+        #         },
+        #         "Staff": {
+        #             "name": "Staff",
+        #             "description": "Staff which handy for a wizards, Harry",
+        #             "value": 10,
+        #             "stat": ItemStat("Intelligence", 5)
+        #         },
+        #         "Bow": {
+        #             "name": "Bow",
+        #             "description": "Bow",
+        #             "value": 10,
+        #             "stat": ItemStat("Agility", 5)
+        #         }
+        #     },
+        #     "unique_items": {
+        #         "Varezhka": {
+        #             "name": "Varezhka",
+        #             "description": "A powerful mitten",
+        #             "value": 100,
+        #             "stat": ItemStat("Strength", 10)
+        #         },
+        #         "Samovar": {
+        #             "name": "Samovar",
+        #             "description": "Fabulous teapot with ornaments",
+        #             "value": 200,
+        #             "stat": ItemStat("Intelligence", 20)
+        #         },
+        #         "Matryoshka": {
+        #             "name": "Nested dolls that somehow make you thinner",
+        #             "description": "",
+        #             "value": 250,
+        #             "stat": ItemStat("Agility", 25)
+        #         }
+        #     }
+        # }
+
+        ########
         # We need to transform it to our Item class
         ########
 
@@ -260,23 +426,23 @@ label functions:
             for item_type in items_data:
                 for item_name in items_data[item_type]:
                     item_data = items_data[item_type][item_name]
-                if item_type == "stackable_items":
-                    stackable_items[item_name] = StackableItem(item_name,
-                                                            item_data["description"],
-                                                            item_data["value"])
-                    continue
-                if item_type == "stat_items":
-                    stat_data = item_data["stat"]
-                    stat_items[item_name] = StatItem(
-                        item_name, item_data["description"], item_data["value"],
-                        ItemStat(stat_data.name, stat_data.value))
-                    continue
-                if item_type == "unique_items":
-                    stat_data = item_data["stat"]
-                    unique_items[item_name] = UniqueItem(
-                        item_name, item_data["description"], item_data["value"],
-                        ItemStat(stat_data.name, stat_data.value))
-                    continue
+                    if item_type == "stackable_items":
+                        stackable_items[item_name] = StackableItem(item_name,
+                                                                item_data["description"],
+                                                                item_data["value"])
+                        continue
+                    if item_type == "stat_items":
+                        stat_data = item_data["stat"]
+                        stat_items[item_name] = StatItem(
+                            item_name, item_data["description"], item_data["value"],
+                            ItemStat(stat_data.name, stat_data.value))
+                        continue
+                    if item_type == "unique_items":
+                        stat_data = item_data["stat"]
+                        unique_items[item_name] = UniqueItem(
+                            item_name, item_data["description"], item_data["value"],
+                            ItemStat(stat_data.name, stat_data.value))
+                        continue
             return {
                 "stackable_items": stackable_items,
                 "stat_items": stat_items,
@@ -292,32 +458,41 @@ label functions:
                 return transformed_data["unique_items"][name]
             return None
 
-        def get_random_item(item_type: str):
+        def get_random_item(item_type: str)->obj:
             items = transformed_data.get(item_type).copy()
             sorted_items = list(items.values())
             random_shuffle(sorted_items)
-            random_item = random.choice(sorted_items)
+            random_item = renpy.random.choice(sorted_items).copy()
             return random_item
 
-        def get_sorted_items(item_type:list):
-            items = transformed_data.get(item_type).copy()
-            sorted_items = list(items.values())
-            return sorted_items
-
-        def get_random_shuffled(item_list:list):
-            random_list = item_list.copy()
-            random_shuffle(random_list)
-            return random_list
-
-        def get_random_item_from_list(item_list:list):
-            return random.choice(item_list)
-
-        def random_shuffle(variable: list):
+        def random_shuffle(variable: list)->list:
             renpy.random.shuffle(variable)
             return variable
 
-        def lexicon_ending(number: int):
-            return "т" if random_number == 1 else "та" if random_number < 5 else "тов"
+        def get_suffix(number: int)->str:
+            return "а" if random_number < 5 and random_number > 1 else "ов"
+
+        def get_random_stats(number_of_stats: int = random.randint(1, 2)):
+            stat = set()
+            while len(stat) < number_of_stats:
+                stat_name = random.choice(list(items_stat_data.keys()))
+                stat_value = random.randrange(-5, 15)
+
+                if stat_value != 0 and stat_name not in {s.name for s in stat}:
+                    stat.add(ItemStat(stat_name, stat_value))
+
+            return list(stat)
+
+        def get_random_item_with_random_stats(item_type: str = "stat_items"):
+            if item_type == "stackable_items":
+                return get_random_item(item_type)
+            else:
+                item = get_random_item(item_type)
+                stats = get_random_stats()
+                item.stat = stats
+                return item
+        
+        # transformed_data = transform_items_data(items_data)
 
         ####
         # Bonus:
@@ -386,7 +561,7 @@ label functions:
 
 
         # Oldy:
-        #
+        
         # class ItemStat:
     
         #     def __init__(self, name: str, value: int):
