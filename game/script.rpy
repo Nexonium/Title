@@ -13,6 +13,17 @@ label start:
 
     v "Ну здарова"
     v "Не узнал меня?"
+    v "Какой из инвентарей проверить?"
+
+    menu:
+        
+        "На базе объектов классов":
+            jump inventory_loop
+        
+        "На базе словарей":
+            jump dictionary_loop
+
+
 
     label inventory_loop:
 
@@ -137,10 +148,140 @@ label start:
 
     return
 
+    label dictionary_loop:
+
+        
+        python:
+            inventory_contains = inventory_dict.get_all_items()
+            inventory_string = ""
+
+            for item in inventory_contains:
+                if item.get('amount'):
+                    inventory_string += f"{item['amount']} {item['name']}"
+                elif item.get('stat'):
+                    for stat in item['stat']:
+                        inventory_string += f"{'+' if stat.value > 0 else ''}{stat.value} {stat.name} "
+
+                inventory_string += f"{item['name']}"
+                
+                if len(inventory_contains) > 1 and item != inventory_contains[-1]:
+                    inventory_string += ", "
+            
+
+        "У меня в инвентаре:\n [inventory_string]"
+
+    menu:
+
+        "Взять исчислимый предмет в количестве от 1 до 10 штук (число и предмет случайны)":
+            
+            $ random_number = renpy.random.randint(1, 10)
+            $ taken_item = get_random_item_dict("stackable_items")
+
+            v "Я тебе отдам... [random_number] [taken_item[name]]"
+            
+            $ inventory_dict.add_item(taken_item, random_number)
+
+            "[random_number] [taken_item[name]] добавлено в инвентарь!"
+            
+            jump dictionary_loop
+
+        "Взять новый случайный одиночный предмет со случайными статами":
+            
+            $ taken_item = get_random_item_dict_with_random_stats()
+            $ inventory_dict.add_item(taken_item)
+            $ string = f"Вы взяли |{taken_item['name']}| c характеристиками "
+            $ string += "".join([f"+{stat.value} {stat.name}" if stat.value > 0 else f"{stat.value} {stat.name}" for stat in taken_item['stat']])
+            
+            "[string]!"
+            jump dictionary_loop
+        
+        
+        "Взять случайный уникальный предмет":
+
+            if inventory_dict.has_unique_item:
+                $ string = "У вас уже есть уникальный предмет в инвентаре"
+            else:
+                $ taken_item = get_random_item_dict_with_random_stats("unique_items")
+                $ inventory_dict.add_item(taken_item)
+                python:
+                    string = f"Вы взяли *{taken_item['name']}* c характеристиками "
+                    for stat in taken_item['stat']:
+                        string += f"{'+' if stat.value > 0 else ''}{stat.value} {stat.name} "
+            
+            "[string]!"
+            jump dictionary_loop
+
+        "Отдать исчислимый предмет в количестве от 1 до 10 штук (случайно)":
+
+            $ random_number = renpy.random.randint(1, 10)
+            $ random_item = inventory_dict.get_random_item_type("stackable_items")
+
+            v "Ну-ка..."
+
+            python:
+                string = ""
+                if random_item:
+                    if random_item['amount'] < random_number:
+                        random_number = random_item['amount']
+                    inventory_dict.remove_item(random_item, random_number)
+                    string = f"Опс! {random_number} {random_item['name']} отдали! Так и быть!"
+                else:
+                    string = "А у тебя ничего такого и нету! Растяпа..."
+
+            v "[string]"
+            jump dictionary_loop
+
+        "Отдать одиночный предмет (один из)":
+
+            $ random_item = inventory_dict.get_random_item_type("stat_items")
+            
+            v "Оп..."
+            
+            python:
+                string = ""
+                if random_item != None:
+                    inventory_dict.remove_item(random_item)
+                    string = f"Хоба! Был |{random_item['name']}| с "
+                    for stat in random_item['stat']:
+                        string += f"{'+' if stat.value > 0 else ''}{stat.value} {stat.name} "
+                    string += "а больше-то и нету! Вот так вот!"
+                else:
+                    string = "А у тебя ничего такого и нету! Растяпа..."
+            
+            v "[string]"
+            jump dictionary_loop
+        
+        "Отдать уникальный предмет":
+
+            $ random_item = inventory_dict.get_random_item_type("unique_items")
+            
+            v "Хммм..."
+            
+            python:
+                string = ""
+                if random_item != None:
+                    inventory_dict.remove_item(random_item)
+                    string = f"Опаньки! Был *{random_item['name']}* с "
+                    for stat in random_item['stat']:
+                        string += f"{'+' if stat.value > 0 else ''}{stat.value} {stat.name} "
+                    string += "а больше-то его и нету! Хорошая вещь была, конечно..."
+                else:
+                    string = "А у тебя ничего такого и нету! Растяпа..."
+            
+            v "%(string)s"
+            jump dictionary_loop
+        
+        "Выйти":
+
+            return
+
+    return
+
 
 label variables:
     $ v = Character("Vasya")
     $ inventory = Inventory()
+    $ inventory_dict = InventoryDict()
     $ random_number = renpy.random.randint(1, 10)
     $ items_data = {
         "stackable_items": {
@@ -194,8 +335,8 @@ label variables:
                 "stat": ItemStat("Intelligence", 20)
             },
             "Matryoshka": {
-                "name": "Nested dolls that somehow make you thinner",
-                "description": "",
+                "name": "Matryoshka",
+                "description": "Nested dolls that somehow make you thinner",
                 "value": 250,
                 "stat": ItemStat("Agility", 25)
             }
@@ -424,6 +565,13 @@ label functions:
             random_item = renpy.random.choice(sorted_items).copy()
             return random_item
 
+        def get_random_item_dict(item_type: str)->dict:
+            items = items_data.get(item_type).copy()
+            sorted_items = list(items.values())
+            random_shuffle(sorted_items)
+            random_item = renpy.random.choice(sorted_items).copy()
+            return random_item
+
         def random_shuffle(variable: list)->list:
             renpy.random.shuffle(variable)
             return variable
@@ -450,6 +598,15 @@ label functions:
                 stats = get_random_stats()
                 item.stat = stats
                 return item
+        
+        def get_random_item_dict_with_random_stats(item_type: str = "stat_items")->dict:
+            if item_type == "stackable_items":
+                return get_random_item_dict(item_type)
+            else:
+                item = get_random_item_dict(item_type)
+                stats = get_random_stats()
+                item['stat'] = stats
+                return item
 
         ####
         # Bonus:
@@ -467,28 +624,29 @@ label functions:
                 self.has_unique_item = False
 
             def add_item(self, item: dict, amount: int = 1):
-                if item.get('unique'):
+                existing_item = self.get_item(item)
+                if item.get('name') in items_data.get('unique_items').keys():
                     if not self.has_unique_item:
                         self.has_unique_item = True
                         self.items.append(item)
                     else:
                         return "You already have unique item!"
-                elif item.get('amount'):
-                    if item not in self.items:
+                elif item.get('name') in items_data.get('stackable_items').keys():
+                    if existing_item:
+                        existing_item['amount'] += amount
+                    else:
                         item['amount'] = amount
                         self.items.append(item)
-                    else:
-                        self.items[self.items.index(item)]['amount'] += amount
                 else:
                     self.items.extend([item] * amount)
 
             def remove_item(self, item: dict, amount: int = 1):
                 deleted_item = self.get_item(item)
                 if deleted_item:
-                    if deleted_item.get('unique'):
+                    if deleted_item.get('name') in items_data.get('unique_items').keys():
                         self.has_unique_item = False
                         self.items.remove(deleted_item)
-                    if deleted_item.get('amount'):
+                    elif deleted_item.get('amount'):
                         deleted_item['amount'] -= amount
                         if deleted_item['amount'] <= 0:
                             self.items.remove(deleted_item)
@@ -500,6 +658,30 @@ label functions:
                 return next((i for i in self.items
                             if i.get('name') == item_name), None) if item_name else None
 
+            def get_random_item_type(self, item_type: str)->dict:
+                items_by_type = []
+                if item_type == "stackable_items":
+                    for item in self.items:
+                        if item.get('amount'):
+                            items_by_type.append(item)
+                elif item_type == "stat_items":
+                    for item in self.items:
+                        if item.get('stat') and item.get('name') not in items_data.get('unique_items').keys():
+                            items_by_type.append(item)
+                elif item_type == "unique_items":
+                    if self.has_unique_item:
+                        for item in self.items:
+                            if item.get('name') in items_data.get('unique_items').keys():
+                                items_by_type.append(item)
+                    else:
+                        return None
+
+                if items_by_type:
+                    random_shuffle(items_by_type)
+                    return renpy.random.choice(items_by_type)
+                else:
+                    return None
+            
             def get_all_items(self)->list(dict):
                 return self.items
             
