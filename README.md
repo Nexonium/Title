@@ -1,3 +1,3 @@
 # Title
 
-Different inventory system realizations in Ren'Py
+Inventory system realizations in Ren'Py
